@@ -47,7 +47,7 @@ body:hover #hint{opacity:.55}
 <div id="hint">H: ayarlar · Boşluk: test konuşma</div>
 <script>
 'use strict';
-const VERSION='v3.1';document.querySelectorAll('.ver').forEach(e=>e.textContent=VERSION);
+const VERSION='v4 (Studio köprüsü)';document.querySelectorAll('.ver').forEach(e=>e.textContent=VERSION);
 const PI=Math.PI,TAU=PI*2,clamp=(v,a=0,b=1)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,rnd=(a,b)=>a+Math.random()*(b-a);
 const ease=(cur,tgt,rate,dt)=>cur+(tgt-cur)*(1-Math.exp(-rate*dt));
 const sstep=(a,b,x)=>{const t=clamp((x-a)/(b-a));return t*t*(3-2*t)};
@@ -155,9 +155,19 @@ if(location.protocol==='file:')document.querySelector('#start small').innerHTML+
 document.getElementById('start').onclick=e=>{if(e.target.id==='start')document.getElementById('start').style.display='none'};
 (async()=>{try{const p=await navigator.permissions.query({name:'microphone'});if(p.state==='granted')startMic(S.mic)}catch(e){}})();
 let fakeTalk=false;
+// ---- Hamamcan Mikrofon programı (LIVE Studio için) ----
+let brDb=-120,brT=-9,br=null;
+function connectBridge(){try{br=new WebSocket('ws://127.0.0.1:21214')}catch(e){setTimeout(connectBridge,3000);return}
+  br.onmessage=e=>{try{const j=JSON.parse(e.data);if(typeof j.db==='number'){brDb=j.db;brT=tNow;const st=document.getElementById('start');if(st.style.display!=='none')st.style.display='none'}}catch(err){}};
+  br.onclose=()=>setTimeout(connectBridge,3000);br.onerror=()=>{}}
+connectBridge();
+if(qp.has('studio'))document.getElementById('start').style.display='none';
 function readAudio(dt){
   let lvl=0;
-  if(an){an.getFloatTimeDomainData(buf);let s=0;for(let i=0;i<buf.length;i++)s+=buf[i]*buf[i];const db=20*Math.log10(Math.sqrt(s/buf.length)+1e-9);
+  let db=null;
+  if(tNow-brT<.6)db=brDb;
+  else if(an){an.getFloatTimeDomainData(buf);let s=0;for(let i=0;i<buf.length;i++)s+=buf[i]*buf[i];db=20*Math.log10(Math.sqrt(s/buf.length)+1e-9)}
+  if(db!==null){
     if(db<floor)floor=ease(floor,db,8,dt);else floor+=(db-floor)*Math.min(1,dt*.04);floor=clamp(floor,-90,-35);
     lvl=clamp((db-floor-S.gate)/28*S.gain);
     const m=document.querySelector('#meter i');if(m)m.style.width=(lvl*100).toFixed(0)+'%'}
