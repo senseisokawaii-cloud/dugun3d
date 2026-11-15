@@ -41,6 +41,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:Poppi
 #note{position:absolute;left:50%;bottom:calc(var(--u)*14);transform:translateX(-50%);z-index:2;pointer-events:none;padding:calc(var(--u)*.6) calc(var(--u)*2.2);border-radius:999px;
   font-size:calc(var(--u)*2.6);font-weight:600;background:rgba(50,6,20,.72);border:1px solid rgba(242,201,106,.5);white-space:nowrap}
 #note b{color:#ffe7a0}
+#aiTag{position:absolute;right:calc(var(--u)*2);top:calc(var(--u)*20);z-index:2;pointer-events:none;padding:calc(var(--u)*.4) calc(var(--u)*1.4);border-radius:999px;font-size:calc(var(--u)*2.1);font-weight:600;background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(255,255,255,.35)}
 #load{position:absolute;inset:0;display:grid;place-items:center;z-index:5;background:radial-gradient(#3a0a18,#000);font-size:calc(var(--u)*4);text-align:center;transition:opacity .8s}
 #load.off{opacity:0;pointer-events:none}
 #debug{position:absolute;left:4px;bottom:2px;font-size:10px;opacity:.25;z-index:2;pointer-events:none}
@@ -72,13 +73,14 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:Poppi
   <div id="banner" class="glass"><div class="ic" id="bIc">👰</div><div style="min-width:0"><div class="t1" id="bT1"></div><div class="t2" id="bT2"></div></div></div>
   <div id="toast"></div>
   <div id="note"><b>değiş</b> → karakter değişir</div>
+  <div id="aiTag">🤖 Yapay zekâ ile oluşturulmuş karakterler (AI)</div>
   <div id="load">Karakterler yükleniyor…</div>
-  <div id="debug">3D v4b</div>
+  <div id="debug">3D v5a</div>
   <div id="hint">H: kontrol paneli · T: deneme tuşu</div>
 </div>
 <button id="testFab">🧪 Deneme</button>
 <div id="testSheet" class="glass">
-  <div class="th"><span>🧪 Deneme <small style="font:600 11px Poppins;color:#ffe7a0;opacity:.85">3D v4b</small></span><span id="tsClose">✕</span></div>
+  <div class="th"><span>🧪 Deneme <small style="font:600 11px Poppins;color:#ffe7a0;opacity:.85">3D v5</small></span><span id="tsClose">✕</span></div>
   <input id="tsName" placeholder="İsim (boşsa rastgele)">
   <input id="tsMsg" placeholder="Yorum (boşsa rastgele)">
   <div class="tg">
@@ -109,7 +111,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:Poppi
   <h4>Halay</h4>
   <div class="g2">
     <div><label>En fazla kişi</label><input type="number" id="maxChars" min="5"></div>
-    <div><label>Çıkış süresi (dk)</label><input type="number" id="idleMin" min="1"></div>
+    <div><label>Pasif sayılma (dk)</label><input type="number" id="idleMin" min="1"></div>
   </div>
   <label><input type="checkbox" id="shadows"> Gölgeler (kasarsa kapat)</label>
   <h4>Modeller</h4>
@@ -123,7 +125,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:Poppi
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
 <script>
 (()=>{
-const VERSION='3D v4b';
+const VERSION='3D v5a';
 const $=id=>document.getElementById(id);
 const V3=THREE.Vector3,PI=Math.PI,TAU=PI*2;
 const rnd=(a,b)=>a+Math.random()*(b-a),pick=a=>a[(Math.random()*a.length)|0],clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -131,9 +133,9 @@ const lerp=(a,b,t)=>a+(b-a)*t;
 function angLerp(a,b,t){let d=((b-a)%TAU+TAU*1.5)%TAU-PI;return a+d*t}
 
 // ================= settings =================
-const DEF={thGelin:50,thSagdic:30,thBasi:15,roleMin:3,maxChars:60,idleMin:20,shadows:true};
+const DEF={thGelin:50,thSagdic:30,thBasi:15,roleMin:3,maxChars:60,idleMin:5,shadows:true};
 let S={...DEF};try{Object.assign(S,JSON.parse(localStorage.getItem('dugun3d')||'{}'))}catch(e){}
-if(!S.v4b){S.maxChars=60;S.v4b=1}
+if(!S.v4b){S.maxChars=60;S.v4b=1}if(!S.v5){S.idleMin=5;S.v5=1}
 const saveS=()=>{try{localStorage.setItem('dugun3d',JSON.stringify(S))}catch(e){}};
 
 // ================= layout 9:16 =================
@@ -418,16 +420,18 @@ function updateSign(){const g=holders.gelin,d=holders.damat;drawSign(g&&d?g.nick
 
 // ================= olaylar =================
 let tempo=1,cosma=false,totalLikes=0,nextLikeMs=1000;
-function touch(id,nick){let c=chars.get(id);if(!c){c=spawn(id,nick);ensureCap(c)}c.last=tNow;if(nick&&nick!==c.nick){c.nick=nick;setLabel(c)}return c}
+function touch(id,nick){let c=chars.get(id);if(!c){pruneIdle();c=spawn(id,nick);ensureCap(c)}c.last=tNow;if(nick&&nick!==c.nick){c.nick=nick;setLabel(c)}return c}
+// yeni kişi gelince uzun süredir yorum/hediye yapmayanlar çıkar
+function pruneIdle(){for(const c of[...chars.values()])if(!c.role&&c.mode!=='leave'&&tNow-c.last>S.idleMin*60)leave(c)}
 function halayList(){return[...chars.values()].filter(c=>c.mode!=='leave'&&!(c.role&&ROLE[c.role].center))}
 function ensureCap(newC){const list=halayList().filter(c=>!c.role&&c!==newC).sort((a,b)=>a.last-b.last);let over=halayList().length-S.maxChars;
   while(over-->0&&list.length)leave(list.shift())}
-function onChat(id,nick,text){const c=touch(id,nick);const t=text.trim().toLocaleLowerCase('tr');
+function onChat(id,nick,text){const c=chars.get(id);if(!c||c.mode==='leave')return;c.last=tNow;const t=text.trim().toLocaleLowerCase('tr');
   if(t==='değiş'||t==='degis'){if(!(c.role&&ROLE[c.role].center)){c.g=c.g==='m'?'f':'m';const ks=guestKeys(c.g);if(ks.length){c.mk=c.guestMk=pick(ks);buildBody(c)}}return}
   if(text.trim())say(c,text.trim())}
-function onGift(id,nick,coins,giftName){coins=Math.max(1,coins|0);const c=touch(id,nick);const tot=(totals.get(id)||0)+coins;totals.set(id,tot);
+function onGift(id,nick,coins,giftName){coins=Math.max(1,coins|0);const isNew=!chars.has(id)||chars.get(id).mode==='leave';if(isNew&&chars.has(id))removeChar(chars.get(id));const c=touch(id,nick);const tot=(totals.get(id)||0)+coins;totals.set(id,tot);
   tempo=Math.min(3,tempo+Math.min(.9,.12+coins*.02));c.salsaUntil=tNow+8;shake(.35);
-  feed(coins===1?`💛 <b>${esc(nick)}</b> gram altın taktı!`:`🎉 <b>${esc(nick)}</b> halayı coşturdu`);
+  if(!isNew)feed(coins===1?`💛 <b>${esc(nick)}</b> gram altın taktı!`:`🎉 <b>${esc(nick)}</b> halayı coşturdu`);
   let r=null;if(tot>=S.thGelin)r=c.g==='f'?'gelin':'damat';else if(tot>=S.thSagdic)r=c.g==='f'?'nedime':'sagdic';else if(tot>=S.thBasi)r='basi';
   if(r&&(!c.role||ROLE[r].rank>ROLE[c.role].rank))giveRole(c,r);else if(c.role)c.roleUntil=tNow+S.roleMin*60}
 function onLike(n,total){n=Math.max(1,n|0);totalLikes=total&&total>totalLikes?total:totalLikes+n;tempo=Math.min(3,tempo+n*.0012);
@@ -498,7 +502,6 @@ function loop(){requestAnimationFrame(loop);const dt=Math.min(clock.getDelta(),.
   // ayrılanlar + süreler
   for(const c of[...chars.values()]){
     if(c.mode==='leave'){const d=moveTo(c,c.exit.x,c.exit.z,4.2,dt);playClip(c,'run',1);if(d<.5){removeChar(c);continue}}
-    else if(!c.role&&tNow-c.last>S.idleMin*60)leave(c);
     if(c.role&&tNow>c.roleUntil)dropRole(c);
     if(c.mixer)c.mixer.update(dt);
     if(c.shim&&c.mode==='halay')shimmy(c,SH);
@@ -514,8 +517,8 @@ const NAMES=['ayse_k','mehmet34','zeyno','emre.06','kübra','burak_tr','elif.nur
 const MSGS=['Hayırlı olsun!','Oyy oyyy','Halay başı kim?','Gelin çok güzel','Davul zurna nerde','Mutluluklar 🎉','Bizi de alın halaya','Coştuk be','Damat bey kalk oyna','Allah mesut etsin'];
 let tc=0;const tName=()=>$('tsName').value.trim()||pick(NAMES)+(++tc);let lastTest=null;
 function testEvent(k){const nm=tName(),id='t_'+nm;
-  if(k==='join'){onChat(id,nm,'');lastTest=id}
-  if(k==='join10')for(let i=0;i<10;i++){const n2=pick(NAMES)+(++tc);onChat('t_'+n2,n2,'')}
+  if(k==='join'){onGift(id,nm,1,'Rose');lastTest=id}
+  if(k==='join10')for(let i=0;i<10;i++){const n2=pick(NAMES)+(++tc);onGift('t_'+n2,n2,1,'Rose')}
   if(k==='chat'){const c=lastTest&&chars.get(lastTest)||pick([...chars.values()]);if(c)onChat(c.id,c.nick,$('tsMsg').value.trim()||pick(MSGS));else onChat(id,nm,$('tsMsg').value.trim()||pick(MSGS))}
   if(k==='degis'){const c=lastTest&&chars.get(lastTest)||pick([...chars.values()]);if(c)onChat(c.id,c.nick,'değiş')}
   if(k==='gul'){onGift(id,nm,1,'Rose');lastTest=id}
