@@ -115,6 +115,10 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:Poppi
     <div><label>Pasif sayılma (dk)</label><input type="number" id="idleMin" min="1"></div>
   </div>
   <label><input type="checkbox" id="shadows"> Gölgeler (kasarsa kapat)</label>
+  <label><input type="checkbox" id="showNames"> İsim etiketleri</label>
+  <label><input type="checkbox" id="showPics"> Profil fotoğrafları</label>
+  <label><input type="checkbox" id="showBubbles"> Yorum balonları</label>
+  <label><input type="checkbox" id="showFeed"> Alttaki bildirimler (para saçtı vb.)</label>
   <h4>Modeller</h4>
   <div id="mdlStatus" class="mut">Kontrol ediliyor…</div>
   <label>Bilgisayardan dene (.fbx dosyalarını seç)</label><input type="file" id="mdlFiles" multiple accept=".fbx">
@@ -126,7 +130,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:Poppi
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
 <script>
 (()=>{
-const VERSION='3D v7';document.querySelectorAll('.ver').forEach(e=>e.textContent=VERSION);
+const VERSION='3D v8b';document.querySelectorAll('.ver').forEach(e=>e.textContent=VERSION);
 const $=id=>document.getElementById(id);
 const V3=THREE.Vector3,PI=Math.PI,TAU=PI*2;
 const rnd=(a,b)=>a+Math.random()*(b-a),pick=a=>a[(Math.random()*a.length)|0],clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -134,9 +138,13 @@ const lerp=(a,b,t)=>a+(b-a)*t;
 function angLerp(a,b,t){let d=((b-a)%TAU+TAU*1.5)%TAU-PI;return a+d*t}
 
 // ================= settings =================
-const DEF={gGelin:'Bouquet',gDamat:'Perfume',thGelin:20,thSagdic:10,thBasi:5,roleMin:3,maxChars:60,idleMin:5,shadows:true};
+const DEF={gGelin:'Bouquet',gDamat:'Perfume',thGelin:20,thSagdic:10,thBasi:5,roleMin:3,maxChars:60,idleMin:5,shadows:true,showNames:true,showPics:true,showBubbles:true,showFeed:true};
 let S={...DEF};try{Object.assign(S,JSON.parse(localStorage.getItem('dugun3d')||'{}'))}catch(e){}
 if(!S.v4b){S.maxChars=60;S.v4b=1}if(!S.v5){S.idleMin=5;S.v5=1}if(!S.gGelin)S.gGelin='Bouquet';if(!S.gDamat)S.gDamat='Perfume';if(!S.v5b){S.thGelin=20;S.thSagdic=10;S.thBasi=5;S.v5b=1}
+for(const k of['showNames','showPics','showBubbles','showFeed'])if(S[k]===undefined)S[k]=true;
+// Link ayarları (LIVE Studio için): ?balon=0&isim=0&foto=0&bildirim=0 — linkteki ayar paneldekini ezer
+{const q=new URLSearchParams(location.search),M={balon:'showBubbles',isim:'showNames',foto:'showPics',bildirim:'showFeed'};
+ for(const k in M)if(q.has(k))S[M[k]]=!/^(0|false|hayir|hayır|kapali|kapalı)$/i.test(q.get(k));}
 const saveS=()=>{try{localStorage.setItem('dugun3d',JSON.stringify(S))}catch(e){}};
 
 // ================= layout 9:16 =================
@@ -434,11 +442,11 @@ const ENTRIES=[[-16,-3],[16,-3],[-13,9],[13,9],[-5,-16],[5,-16],[-11,-12],[11,-1
 function spawn(id,nick,g,quiet){const c={id,nick,g:g||(Math.random()<.5?'m':'f'),root:new THREE.Group(),inner:null,mixer:null,actions:{},role:null,roleUntil:0,mode:'run',joinT:tNow,last:tNow,salsaUntil:0,bubble:null,bubbleT:0};
   const ks=guestKeys(c.g);c.mk=ks.length?pick(ks):(c.g==='f'?'kadin3':'erkek1');c.guestMk=c.mk;
   const e=pick(ENTRIES);c.root.position.set(e[0]+rnd(-1,1),0,e[1]+rnd(-1,1));
-  c.label=makeLabel(nick,null,pics.get(id));c.root.add(c.label);
+  c.label=makeLabel(nick,null,S.showPics?pics.get(id):null);c.label.visible=!!S.showNames;c.root.add(c.label);
   c.glow=new THREE.Mesh(new THREE.PlaneGeometry(1.6,1.6),new THREE.MeshBasicMaterial({map:glowTex,transparent:true,depthWrite:false}));c.glow.rotation.x=-PI/2;c.glow.position.y=.02;c.glow.visible=false;c.root.add(c.glow);
   scene.add(c.root);if(M[c.mk])buildBody(c);chars.set(id,c);joined(c,quiet);return c}
-function setLabel(c){disposeSprite(c.label);c.label=makeLabel(c.nick,c.role,pics.get(c.id));c.root.add(c.label);c.label.position.y=(c.Mo?c.Mo.height:1.75)+.32;c.glow.visible=!!c.role}
-function say(c,text){disposeSprite(c.bubble);c.bubble=makeBubble(text,c.role);c.root.add(c.bubble);c.bubble.position.y=(c.Mo?c.Mo.height:1.75)+.82;c.bubbleT=6}
+function setLabel(c){disposeSprite(c.label);c.label=makeLabel(c.nick,c.role,S.showPics?pics.get(c.id):null);c.label.visible=!!S.showNames;c.root.add(c.label);c.label.position.y=(c.Mo?c.Mo.height:1.75)+.32;c.glow.visible=!!c.role}
+function say(c,text){if(!S.showBubbles)return;disposeSprite(c.bubble);c.bubble=makeBubble(text,c.role);c.root.add(c.bubble);c.bubble.position.y=(c.Mo?c.Mo.height:1.75)+.82;c.bubbleT=6}
 function removeChar(c){freeSlot(c);scene.remove(c.root);if(c.mixer){c.mixer.stopAllAction()}disposeSprite(c.label);disposeSprite(c.bubble);c.glow.material.dispose();c.glow.geometry.dispose();
   for(const r in holders)if(holders[r]===c)holders[r]=null;chars.delete(c.id);if(c.role==='gelin'||c.role==='damat')updateSign()}
 function leave(c){if(c.role)dropRole(c,true);freeSlot(c);c.mode='leave';const e=pick(ENTRIES);c.exit=new V3(e[0],0,e[1])}
@@ -478,9 +486,9 @@ function onLike(n,total){n=Math.max(1,n|0);totalLikes=total&&total>totalLikes?to
   while(totalLikes>=nextLikeMs){nextLikeMs+=1000;tempo=Math.min(3,tempo+.6)}}
 
 // ================= UI =================
-const avImg=id=>{const u=pics.get(id);return u?`<img class="av" src="${esc(u)}" referrerpolicy="no-referrer" onerror="this.remove()">`:''};
+const avImg=id=>{const u=S.showPics&&pics.get(id);return u?`<img class="av" src="${esc(u)}" referrerpolicy="no-referrer" onerror="this.remove()">`:''};
 const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
-function feed(html){const d=document.createElement('div');d.className='fd';d.innerHTML=html;$('feed').prepend(d);if($('feed').children.length>3)$('feed').lastChild.remove();
+function feed(html){if(!S.showFeed)return;const d=document.createElement('div');d.className='fd';d.innerHTML=html;$('feed').prepend(d);if($('feed').children.length>3)$('feed').lastChild.remove();
   while($('feed').children.length>5)$('feed').lastChild.remove();setTimeout(()=>{d.style.opacity=0;setTimeout(()=>d.remove(),700)},6000)}
 let bTimer;function banner(ic,t1,t2){feed(`${ic} ${esc(t1)}${t2?' <b>'+esc(t2)+'</b>':''}`);return;$('bIc').textContent=ic;$('bT1').textContent=t1;$('bT2').textContent=t2||'';$('banner').classList.add('on');clearTimeout(bTimer);bTimer=setTimeout(()=>$('banner').classList.remove('on'),3800)}
 let tTimer;function toast(t){$('toast').textContent=t;$('toast').classList.add('on');clearTimeout(tTimer);tTimer=setTimeout(()=>$('toast').classList.remove('on'),2600)}
@@ -605,6 +613,8 @@ function bind(id,key,fn){const el=$(id),cb=el.type==='checkbox';if(cb)el.checked
   el.addEventListener(cb?'change':'input',()=>{S[key]=cb?el.checked:Math.max(1,+el.value||1);saveS();fn&&fn()})}
 ['thSagdic','thBasi','roleMin','maxChars','idleMin'].forEach(k=>bind(k,k));
 ['gGelin','gDamat'].forEach(k=>{const el=$(k);el.value=S[k];el.addEventListener('input',()=>{S[k]=el.value;saveS()})});
+['showNames','showBubbles','showFeed'].forEach(k=>bind(k,k,()=>{if(k==='showNames')chars.forEach(c=>{if(c.label)c.label.visible=!!S.showNames});if(k==='showBubbles'&&!S.showBubbles)chars.forEach(c=>{if(c.bubble)c.bubble.visible=false});if(k==='showFeed'&&!S.showFeed)$('feed').innerHTML=''}));
+bind('showPics','showPics',()=>chars.forEach(c=>{if(c.mode!=='leave')setLabel(c)}));
 bind('shadows','shadows',()=>{renderer.shadowMap.enabled=!!S.shadows;scene.traverse(o=>{if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.needsUpdate=true)}})});
 setTimeout(()=>$('hint').style.opacity=0,7000);
 
