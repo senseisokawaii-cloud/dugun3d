@@ -27,6 +27,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:Poppi
 #feed{position:absolute;left:50%;bottom:calc(var(--u)*20.5);transform:translateX(-50%);display:flex;flex-direction:column-reverse;align-items:center;gap:calc(var(--u)*.9);pointer-events:none;z-index:2;width:92%}
 .fd{padding:calc(var(--u)*.8) calc(var(--u)*2.6);border-radius:999px;font-size:calc(var(--u)*3.2);font-weight:600;animation:fin .4s ease-out;transition:opacity .6s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;background:rgba(50,6,20,.78);border:1px solid rgba(242,201,106,.55)}
 .fd b{color:#ffe7a0}
+.fd img.av{width:1.5em;height:1.5em;border-radius:50%;vertical-align:middle;margin:-.2em .35em 0 0;object-fit:cover;border:1px solid rgba(255,255,255,.6)}
 @keyframes fin{from{transform:translateY(14px);opacity:0}}
 #banner{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%) scale(.7);opacity:0;transition:transform .45s cubic-bezier(.2,1.6,.4,1),opacity .3s;pointer-events:none;z-index:3;
   display:flex;align-items:center;gap:calc(var(--u)*2.4);padding:calc(var(--u)*1.6) calc(var(--u)*5) calc(var(--u)*1.6) calc(var(--u)*1.6);border-radius:999px;white-space:nowrap;max-width:92%}
@@ -73,7 +74,6 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:Poppi
   <div id="banner" class="glass"><div class="ic" id="bIc">👰</div><div style="min-width:0"><div class="t1" id="bT1"></div><div class="t2" id="bT2"></div></div></div>
   <div id="toast"></div>
   <div id="note"><b>değiş</b> → karakter değişir</div>
-  <div id="aiTag">🤖 Yapay zekâ ile oluşturulmuş karakterler (AI)</div>
   <div id="load">Karakterler yükleniyor…</div>
   <div id="debug" class="ver"></div>
   <div id="hint">H: kontrol paneli · T: deneme tuşu</div>
@@ -84,7 +84,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:Poppi
   <input id="tsName" placeholder="İsim (boşsa rastgele)">
   <input id="tsMsg" placeholder="Yorum (boşsa rastgele)">
   <div class="tg">
-    <button data-x="join">👋 1 kişi katılsın</button><button data-x="join10">👥 +10 kişi</button>
+    <button data-x="join">👋 1 kişi yorumla katılsın</button><button data-x="join10">👥 +10 kişi</button>
     <button data-x="chat">💬 Yorum</button><button data-x="degis">🔄 değiş</button>
     <button data-x="gul">🌹 Gül (1)</button><button data-x="like">❤️ +1000 beğeni</button>
     <button data-x="basi">🧣 Halay başı</button><button data-x="sagdic">🤵 Sağdıç</button>
@@ -126,7 +126,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:Poppi
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
 <script>
 (()=>{
-const VERSION='3D v5d';document.querySelectorAll('.ver').forEach(e=>e.textContent=VERSION);
+const VERSION='3D v6';document.querySelectorAll('.ver').forEach(e=>e.textContent=VERSION);
 const $=id=>document.getElementById(id);
 const V3=THREE.Vector3,PI=Math.PI,TAU=PI*2;
 const rnd=(a,b)=>a+Math.random()*(b-a),pick=a=>a[(Math.random()*a.length)|0],clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -320,13 +320,25 @@ const ROLE={basi:{rank:1,name:'Halay Başı',ic:'🧣'},sagdic:{rank:2,name:'Sa�
   gelin:{rank:3,name:'Gelin',ic:'👰',center:1,model:'gelin',pos:[-.42,-.1]},damat:{rank:3,name:'Damat',ic:'🤵',center:1,model:'damat',pos:[.42,-.1]}};
 const holders={basi:null,sagdic:null,nedime:null,gelin:null,damat:null};
 function guestKeys(g){return Object.keys(M).filter(k=>MDEF[k].guest&&(!g||MDEF[k].g===g))}
-function makeLabel(text,role){const c=document.createElement('canvas');c.width=512;c.height=110;const g=c.getContext('2d');
-  g.font='800 46px Poppins, sans-serif';let t=text;while(g.measureText(t).width>440&&t.length>3)t=t.slice(0,-2);if(t!==text)t+='…';
-  const ic=role?ROLE[role].ic+' ':'';const full=ic+t;const tw=Math.min(500,g.measureText(full).width+44);
-  g.fillStyle=role?'rgba(140,16,48,.9)':'rgba(0,0,0,.5)';g.beginPath();g.roundRect?g.roundRect((512-tw)/2,14,tw,74,37):g.rect((512-tw)/2,14,tw,74);g.fill();
-  if(role){g.strokeStyle='#f2c96a';g.lineWidth=5;g.stroke()}
-  g.fillStyle=role?'#fff3c4':'#fff';g.textAlign='center';g.textBaseline='middle';g.fillText(full,256,53);
-  const tx=new THREE.CanvasTexture(c);tx.encoding=THREE.sRGBEncoding;const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));s.scale.set(1.1,.24,1);s.renderOrder=10;return s}
+const AV=new Map();const pics=new Map();
+function loadAv(url,cb){if(!url){return}let e=AV.get(url);if(!e){e={img:new Image(),ok:false,fail:false,cbs:[]};AV.set(url,e);e.img.crossOrigin='anonymous';
+  e.img.onload=()=>{e.ok=true;e.cbs.forEach(f=>f(e.img));e.cbs=[]};e.img.onerror=()=>{e.fail=true;e.cbs=[]};e.img.src=url}
+  if(e.ok)cb(e.img);else if(!e.fail)e.cbs.push(cb)}
+function makeLabel(text,role,pic){const c=document.createElement('canvas');c.width=600;c.height=110;const g=c.getContext('2d');
+  g.font='800 46px Poppins, sans-serif';let t=text;while(g.measureText(t).width>400&&t.length>3)t=t.slice(0,-2);if(t!==text)t+='…';
+  const ic=role?ROLE[role].ic+' ':'';const full=ic+t;const AVS=66;const tw=Math.min(590,g.measureText(full).width+44+AVS+10);
+  const x0=(600-tw)/2;let hue=0;for(const ch of text)hue=(hue*31+ch.charCodeAt(0))%360;
+  const draw=img=>{g.clearRect(0,0,600,110);g.font='800 46px Poppins, sans-serif';
+    g.fillStyle=role?'rgba(140,16,48,.9)':'rgba(0,0,0,.5)';g.beginPath();g.roundRect?g.roundRect(x0,14,tw,74,37):g.rect(x0,14,tw,74);g.fill();
+    if(role){g.strokeStyle='#f2c96a';g.lineWidth=5;g.stroke()}
+    const ax=x0+6+AVS/2,ay=51;g.save();g.beginPath();g.arc(ax,ay,AVS/2,0,Math.PI*2);g.clip();
+    if(img){g.drawImage(img,ax-AVS/2,ay-AVS/2,AVS,AVS)}else{g.fillStyle=`hsl(${hue},55%,45%)`;g.fillRect(ax-AVS/2,ay-AVS/2,AVS,AVS);g.fillStyle='#fff';g.font='800 36px Poppins, sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText((text[0]||'?').toLocaleUpperCase('tr'),ax,ay+2)}
+    g.restore();g.beginPath();g.arc(ax,ay,AVS/2,0,Math.PI*2);g.strokeStyle='rgba(255,255,255,.85)';g.lineWidth=3;g.stroke();
+    g.font='800 46px Poppins, sans-serif';g.fillStyle=role?'#fff3c4':'#fff';g.textAlign='left';g.textBaseline='middle';g.fillText(full,x0+AVS+22,53)};
+  draw(null);
+  const tx=new THREE.CanvasTexture(c);tx.encoding=THREE.sRGBEncoding;const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));s.scale.set(1.29,.24,1);s.renderOrder=10;
+  if(pic)loadAv(pic,img=>{if(!s.parent)return;try{draw(img);tx.needsUpdate=true}catch(e){draw(null);tx.needsUpdate=true}});
+  return s}
 function makeBubble(text,role){const c=document.createElement('canvas');c.width=640;c.height=180;const g=c.getContext('2d');g.font='600 40px Poppins, sans-serif';
   const words=text.split(/\s+/);const lines=[];let cur='';for(const w of words){const t=cur?cur+' '+w:w;if(g.measureText(t).width>560&&cur){lines.push(cur);cur=w}else cur=t;if(lines.length>=2)break}
   if(cur&&lines.length<2)lines.push(cur);if(lines.length===2&&g.measureText(lines[1]).width>560)lines[1]=lines[1].slice(0,26)+'…';
@@ -394,13 +406,13 @@ function playClip(c,key,ts){if(!c.mixer)return;if(!hasClip(key)){key=key==='rumb
     a.reset();a.setEffectiveWeight(1);a.time=Math.random()*clip.duration;a.fadeIn(.3).play();if(c.cur)c.cur.fadeOut(.3);c.cur=a;c.curKey=key}
   if(c.cur)c.cur.timeScale=ts==null?1:ts}
 const ENTRIES=[[-16,-3],[16,-3],[-13,9],[13,9],[-5,-16],[5,-16],[-11,-12],[11,-12],[-6,15],[6,15]];
-function spawn(id,nick,g){const c={id,nick,g:g||(Math.random()<.5?'m':'f'),root:new THREE.Group(),inner:null,mixer:null,actions:{},role:null,roleUntil:0,mode:'run',joinT:tNow,last:tNow,salsaUntil:0,bubble:null,bubbleT:0};
+function spawn(id,nick,g,quiet){const c={id,nick,g:g||(Math.random()<.5?'m':'f'),root:new THREE.Group(),inner:null,mixer:null,actions:{},role:null,roleUntil:0,mode:'run',joinT:tNow,last:tNow,salsaUntil:0,bubble:null,bubbleT:0};
   const ks=guestKeys(c.g);c.mk=ks.length?pick(ks):(c.g==='f'?'kadin3':'erkek1');c.guestMk=c.mk;
   const e=pick(ENTRIES);c.root.position.set(e[0]+rnd(-1,1),0,e[1]+rnd(-1,1));
-  c.label=makeLabel(nick);c.root.add(c.label);
+  c.label=makeLabel(nick,null,pics.get(id));c.root.add(c.label);
   c.glow=new THREE.Mesh(new THREE.PlaneGeometry(1.6,1.6),new THREE.MeshBasicMaterial({map:glowTex,transparent:true,depthWrite:false}));c.glow.rotation.x=-PI/2;c.glow.position.y=.02;c.glow.visible=false;c.root.add(c.glow);
-  scene.add(c.root);if(M[c.mk])buildBody(c);chars.set(id,c);joined(c);return c}
-function setLabel(c){disposeSprite(c.label);c.label=makeLabel(c.nick,c.role);c.root.add(c.label);c.label.position.y=(c.Mo?c.Mo.height:1.75)+.32;c.glow.visible=!!c.role}
+  scene.add(c.root);if(M[c.mk])buildBody(c);chars.set(id,c);joined(c,quiet);return c}
+function setLabel(c){disposeSprite(c.label);c.label=makeLabel(c.nick,c.role,pics.get(c.id));c.root.add(c.label);c.label.position.y=(c.Mo?c.Mo.height:1.75)+.32;c.glow.visible=!!c.role}
 function say(c,text){disposeSprite(c.bubble);c.bubble=makeBubble(text,c.role);c.root.add(c.bubble);c.bubble.position.y=(c.Mo?c.Mo.height:1.75)+.82;c.bubbleT=6}
 function removeChar(c){freeSlot(c);scene.remove(c.root);if(c.mixer){c.mixer.stopAllAction()}disposeSprite(c.label);disposeSprite(c.bubble);c.glow.material.dispose();c.glow.geometry.dispose();
   for(const r in holders)if(holders[r]===c)holders[r]=null;chars.delete(c.id);if(c.role==='gelin'||c.role==='damat')updateSign()}
@@ -421,18 +433,18 @@ function updateSign(){const g=holders.gelin,d=holders.damat;drawSign(g&&d?g.nick
 
 // ================= olaylar =================
 let tempo=1,cosma=false,totalLikes=0,nextLikeMs=1000;
-function touch(id,nick){let c=chars.get(id);if(!c){pruneIdle();c=spawn(id,nick);ensureCap(c)}c.last=tNow;if(nick&&nick!==c.nick){c.nick=nick;setLabel(c)}return c}
-// yeni kişi gelince uzun süredir yorum/hediye yapmayanlar çıkar
+function touch(id,nick,quiet){let c=chars.get(id);if(!c){pruneIdle();c=spawn(id,nick,null,quiet);ensureCap(c)}c.last=tNow;if(nick&&nick!==c.nick){c.nick=nick;setLabel(c)}return c}
+// uzun süredir yorum/hediye yapmayanlar koşarak çıkar (düzenli kontrol)
 function pruneIdle(){for(const c of[...chars.values()])if(!c.role&&c.mode!=='leave'&&tNow-c.last>S.idleMin*60)leave(c)}
 function halayList(){return[...chars.values()].filter(c=>c.mode!=='leave'&&!(c.role&&ROLE[c.role].center))}
 function ensureCap(newC){const list=halayList().filter(c=>!c.role&&c!==newC).sort((a,b)=>a.last-b.last);let over=halayList().length-S.maxChars;
   while(over-->0&&list.length)leave(list.shift())}
-function onChat(id,nick,text){const c=chars.get(id);if(!c||c.mode==='leave')return;c.last=tNow;const t=text.trim().toLocaleLowerCase('tr');
+function onChat(id,nick,text){let c=chars.get(id);if(c&&c.mode==='leave'){removeChar(c);c=null}if(!c)c=touch(id,nick);c.last=tNow;const t=text.trim().toLocaleLowerCase('tr');
   if(t==='değiş'||t==='degis'){if(!(c.role&&ROLE[c.role].center)){c.g=c.g==='m'?'f':'m';const ks=guestKeys(c.g);if(ks.length){c.mk=c.guestMk=pick(ks);buildBody(c)}}return}
   if(text.trim())say(c,text.trim())}
-function onGift(id,nick,coins,giftName){coins=Math.max(1,coins|0);const isNew=!chars.has(id)||chars.get(id).mode==='leave';if(isNew&&chars.has(id))removeChar(chars.get(id));const c=touch(id,nick);const tot=(totals.get(id)||0)+coins;totals.set(id,tot);
+function onGift(id,nick,coins,giftName){coins=Math.max(1,coins|0);const isNew=!chars.has(id)||chars.get(id).mode==='leave';if(isNew&&chars.has(id))removeChar(chars.get(id));const c=touch(id,nick,true);const tot=(totals.get(id)||0)+coins;totals.set(id,tot);
   tempo=Math.min(3,tempo+Math.min(.9,.12+coins*.02));c.salsaUntil=tNow+8;shake(.35);
-  if(!isNew)feed(coins===1?`💛 <b>${esc(nick)}</b> gram altın taktı!`:`🎉 <b>${esc(nick)}</b> halayı coşturdu`);
+  feed(coins===1?`💸 ${avImg(id)}<b>${esc(nick)}</b> para saçtı`:`💸 ${avImg(id)}<b>${esc(nick)}</b> ${coins} jeton para saçtı`);
   const gn=String(giftName||'').toLocaleLowerCase('tr'),has=w=>w&&String(w).split(',').some(x=>x.trim()&&gn.includes(x.trim().toLocaleLowerCase('tr')));
   if(has(S.gGelin)||/buket/.test(gn)){giveRole(c,'gelin');return}if(has(S.gDamat)||/parf[uü]m/.test(gn)){giveRole(c,'damat');return}
   let r=null;if(tot>=S.thSagdic)r=c.g==='f'?'nedime':'sagdic';else if(tot>=S.thBasi)r='basi';
@@ -441,6 +453,7 @@ function onLike(n,total){n=Math.max(1,n|0);totalLikes=total&&total>totalLikes?to
   while(totalLikes>=nextLikeMs){nextLikeMs+=1000;tempo=Math.min(3,tempo+.6)}}
 
 // ================= UI =================
+const avImg=id=>{const u=pics.get(id);return u?`<img class="av" src="${esc(u)}" referrerpolicy="no-referrer" onerror="this.remove()">`:''};
 const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 function feed(html){const d=document.createElement('div');d.className='fd';d.innerHTML=html;$('feed').prepend(d);if($('feed').children.length>3)$('feed').lastChild.remove();
   while($('feed').children.length>5)$('feed').lastChild.remove();setTimeout(()=>{d.style.opacity=0;setTimeout(()=>d.remove(),700)},6000)}
@@ -451,7 +464,7 @@ let shakeA=0;const shake=a=>{shakeA=Math.max(shakeA,a)};
 // ================= kamera =================
 let focus=null,focusUntil=0,nextAuto=20;const camPos=new V3(0,6.8,15),camLook=new V3(0,1.2,-1.5);
 let follow=null,followEnd=0,focusSmall=false,orbitOn=false,orbitEnd=0,orbitA=0,orbitDir=1,nextOrbit=14;const camAng0=()=>Math.atan2(camPos.x,camPos.z);const joinQ=[];let joinNext=0;
-function joined(c){feed(`👋 <b>${esc(c.nick)}</b> halaya katıldı`);joinQ.push(c);while(joinQ.length>2)joinQ.shift()}function focusOn(c,dur,small){focus=c;focusUntil=tNow+(dur||3.5);focusSmall=!!small}
+function joined(c,quiet){if(!quiet)feed(`👋 ${avImg(c.id)}<b>${esc(c.nick)}</b> halaya katıldı`);joinQ.push(c);while(joinQ.length>2)joinQ.shift()}function focusOn(c,dur,small){focus=c;focusUntil=tNow+(dur||3.5);focusSmall=!!small}
 const _hv=new V3(),_cp=new V3(),_cl=new V3();
 function updateCamera(dt){const n=halayList().length;const R=ringR;
   if(focus&&(tNow>focusUntil||!chars.has(focus.id)))focus=null;
@@ -483,7 +496,7 @@ function takeSlot(c){if(c.slot!=null&&SLOTS[c.slot].c===c)return SLOTS[c.slot];f
 function moveTo(c,tx,tz,speed,dt){const p=c.root.position;const dx=tx-p.x,dz=tz-p.z;const d=Math.hypot(dx,dz);
   if(d>.001){const st=Math.min(d,speed*dt);p.x+=dx/d*st;p.z+=dz/d*st;c.root.rotation.y=angLerp(c.root.rotation.y,Math.atan2(dx,dz),Math.min(1,dt*10))}return d}
 const clock=new THREE.Clock();
-function loop(){requestAnimationFrame(loop);const dt=Math.min(clock.getDelta(),.05);tNow+=dt;
+let pruneT=0;function loop(){requestAnimationFrame(loop);const dt=Math.min(clock.getDelta(),.05);tNow+=dt;if((pruneT-=dt)<=0){pruneT=5;pruneIdle()}
   // tempo
   tempo+=(1-tempo)*dt*.018;if(tempo<1)tempo=1;
   // halay: sabit iç içe halkalar, 3 adım ileri 3 adım geri
@@ -520,8 +533,8 @@ const NAMES=['ayse_k','mehmet34','zeyno','emre.06','kübra','burak_tr','elif.nur
 const MSGS=['Hayırlı olsun!','Oyy oyyy','Halay başı kim?','Gelin çok güzel','Davul zurna nerde','Mutluluklar 🎉','Bizi de alın halaya','Coştuk be','Damat bey kalk oyna','Allah mesut etsin'];
 let tc=0;const tName=()=>$('tsName').value.trim()||pick(NAMES)+(++tc);let lastTest=null;
 function testEvent(k){const nm=tName(),id='t_'+nm;
-  if(k==='join'){onGift(id,nm,1,'Rose');lastTest=id}
-  if(k==='join10')for(let i=0;i<10;i++){const n2=pick(NAMES)+(++tc);onGift('t_'+n2,n2,1,'Rose')}
+  if(k==='join'){onChat(id,nm,pick(MSGS));lastTest=id}
+  if(k==='join10')for(let i=0;i<10;i++){const n2=pick(NAMES)+(++tc);onChat('t_'+n2,n2,pick(MSGS))}
   if(k==='chat'){const c=lastTest&&chars.get(lastTest)||pick([...chars.values()]);if(c)onChat(c.id,c.nick,$('tsMsg').value.trim()||pick(MSGS));else onChat(id,nm,$('tsMsg').value.trim()||pick(MSGS))}
   if(k==='degis'){const c=lastTest&&chars.get(lastTest)||pick([...chars.values()]);if(c)onChat(c.id,c.nick,'değiş')}
   if(k==='gul'){onGift(id,nm,1,'Rose');lastTest=id}
@@ -551,6 +564,8 @@ function handleMsg(raw){let m;try{m=typeof raw==='string'?JSON.parse(raw):raw}ca
   const u=(d.user&&typeof d.user==='object')?d.user:(d.userDetails||d.sender||{});
   const id=String(d.uniqueId||u.uniqueId||u.unique_id||d.userId||u.userId||u.id||(typeof d.user==='string'?d.user:'')||d.username||u.username||d.nickname||u.nickname||'');
   const nick=String(d.nickname||u.nickname||u.nickName||d.uniqueId||u.uniqueId||d.username||id);const g=d.giftDetails||d.gift||{};
+  {const pp=d.profilePictureUrl||u.profilePictureUrl||d.profilePicture&&(typeof d.profilePicture==='string'?d.profilePicture:(d.profilePicture.urls||d.profilePicture.url||[])[0])||u.profilePicture&&(typeof u.profilePicture==='string'?u.profilePicture:(u.profilePicture.urls||u.profilePicture.url||[])[0])||d.avatar||u.avatar||d.avatarUrl||'';
+   if(id&&pp&&typeof pp==='string'&&pics.get(id)!==pp){pics.set(id,pp);const c=chars.get(id);if(c&&c.mode!=='leave')setLabel(c)}}
   if(/chat|comment|message/.test(ev)){if(id)onChat(id,nick,String(d.comment||d.text||d.message||d.content||''))}
   else if(ev.includes('gift')){if((d.giftType===1||g.giftType===1)&&d.repeatEnd===false)return;
     const dia=d.diamondCount||g.diamondCount||g.diamond_count||d.coins||d.diamonds||1,cnt=d.repeatCount||d.count||d.amount||1;if(id)onGift(id,nick,dia*cnt,d.giftName||g.giftName||g.name)}
