@@ -126,7 +126,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:Poppi
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
 <script>
 (()=>{
-const VERSION='3D v6';document.querySelectorAll('.ver').forEach(e=>e.textContent=VERSION);
+const VERSION='3D v7';document.querySelectorAll('.ver').forEach(e=>e.textContent=VERSION);
 const $=id=>document.getElementById(id);
 const V3=THREE.Vector3,PI=Math.PI,TAU=PI*2;
 const rnd=(a,b)=>a+Math.random()*(b-a),pick=a=>a[(Math.random()*a.length)|0],clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -154,6 +154,31 @@ app.prepend(renderer.domElement);
 const scene=new THREE.Scene();scene.fog=new THREE.Fog(0xcfd9e6,70,230);
 const camera=new THREE.PerspectiveCamera(48,9/16,.1,400);
 fit();addEventListener('resize',fit);
+// ================= efektler (para, kalp, smokin...) =================
+const fxCv=document.createElement('canvas');fxCv.style.cssText='pointer-events:none;z-index:1';renderer.domElement.after(fxCv);const fxc=fxCv.getContext('2d');
+const FXE={};function emo(ch){if(FXE[ch])return FXE[ch];const c=document.createElement('canvas');c.width=c.height=96;const g=c.getContext('2d');g.font='72px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(ch,48,54);return FXE[ch]=c}
+const FXP=[],FXQ=[];
+const FXSET={money:['💵','💵','💸','🪙','💰'],gelin:['❤️','💖','💕','💗','💐'],damat:['🤵','🎩','👔','🌹','✨'],nedime:['💃','🌸','✨','💖'],sagdic:['🕺','🎩','✨','🎉'],basi:['🧣','🥁','✨','🎉']};
+const _fv=new THREE.Vector3();
+function scr(c,yOff){_fv.copy(c.root.position);_fv.y+=yOff==null?((c.Mo?c.Mo.height:1.75)*.8):yOff;_fv.project(camera);return{x:(_fv.x*.5+.5)*W,y:(-_fv.y*.5+.5)*H,ok:_fv.z<1}}
+function fxPart(set,x,y,o){const sz=(o.size||1.25)*W*rnd(.06,.09);FXP.push({e:emo(pick(FXSET[set])),x,y,vx:o.vx!=null?o.vx:rnd(-.25,.25)*W,vy:o.vy!=null?o.vy:rnd(-.55,-.3)*H,g:o.g!=null?o.g:H*.9,r:rnd(0,6.3),vr:rnd(-4,4),sz,t:0,life:o.life||rnd(1.6,2.3),sway:o.sway||0,ph:rnd(0,6.3),drag:o.drag||0})}
+// kısa süreli (≈2.5 sn) yağmur/patlama planla
+function fxPlan(dur,n,fn){for(let i=0;i<n;i++)FXQ.push({at:tNow+Math.random()*dur,fn})}
+function fxMoney(c,coins){const big=Math.min(1,Math.log10(Math.max(1,coins))/2.5);const nb=Math.round(10+big*20),nr=Math.round(14+big*40);
+  fxPlan(.35,nb,()=>{const p=scr(c);if(p.ok)fxPart('money',p.x,p.y,{vx:rnd(-.32,.32)*W,vy:rnd(-.75,-.35)*H,g:H*1.1,sway:W*.02})});
+  fxPlan(1.1,nr,()=>fxPart('money',rnd(0,W),-W*.06,{vx:rnd(-.04,.04)*W,vy:rnd(.08,.2)*H,g:H*.35,sway:W*.05,drag:.6,life:rnd(1.6,2.3)}))}
+function fxRole(c,r){const set=FXSET[r]?r:'basi';const n=r==='gelin'||r==='damat'?36:22;
+  fxPlan(.9,n,()=>{const p=scr(c);if(p.ok)fxPart(set,p.x+rnd(-.05,.05)*W,p.y,{vx:rnd(-.22,.22)*W,vy:rnd(-.55,-.25)*H,g:r==='gelin'?-H*.05:H*.5,sway:W*.03,size:1.1,life:rnd(1.6,2.4)})});
+  if(r==='gelin'||r==='damat')fxPlan(1,26,()=>fxPart(set,rnd(0,W),H*1.03,{vx:rnd(-.03,.03)*W,vy:-rnd(.35,.55)*H,g:-H*.02,sway:W*.04,life:rnd(1.8,2.4)}))}
+function fxUpdate(dt){
+  if(fxCv.width!==W||fxCv.height!==H){fxCv.width=W;fxCv.height=H}
+  fxc.clearRect(0,0,W,H);
+  for(let i=FXQ.length-1;i>=0;i--)if(tNow>=FXQ[i].at){const q=FXQ[i];FXQ.splice(i,1);try{q.fn()}catch(e){}}
+  for(let i=FXP.length-1;i>=0;i--){const p=FXP[i];p.t+=dt;if(p.t>p.life){FXP.splice(i,1);continue}
+    p.vy+=p.g*dt;if(p.drag){p.vx*=1-p.drag*dt;}p.x+=(p.vx+Math.sin(p.t*5+p.ph)*p.sway*3)*dt;p.y+=p.vy*dt;p.r+=p.vr*dt;
+    const a=Math.min(1,p.t*8)*Math.min(1,(p.life-p.t)/.45);if(a<=0)continue;
+    fxc.save();fxc.globalAlpha=a;fxc.translate(p.x,p.y);fxc.rotate(Math.sin(p.r)*.6);const sc=p.sz*(.7+.3*Math.min(1,p.t*6));fxc.drawImage(p.e,-sc/2,-sc/2,sc,sc);fxc.restore()}
+  if(FXP.length>400)FXP.splice(0,FXP.length-400)}
 
 const hemi=new THREE.HemisphereLight(0xdfeeff,0x6a5a40,.75);scene.add(hemi);
 const sun=new THREE.DirectionalLight(0xffe2b8,1.35);sun.position.set(-12,24,18);sun.castShadow=true;
@@ -422,7 +447,7 @@ function leave(c){if(c.role)dropRole(c,true);freeSlot(c);c.mode='leave';const e=
 function dropRole(c,silent){const r=c.role;if(!r)return;if(holders[r]===c)holders[r]=null;c.role=null;
   if(ROLE[r].center){c.mk=c.guestMk;if(MDEF[c.mk]&&MDEF[c.mk].g!==c.g){const ks=guestKeys(c.g);c.mk=c.guestMk=ks.length?pick(ks):c.mk}buildBody(c);if(!silent)c.mode='run'}
   setLabel(c);if(r==='gelin'||r==='damat')updateSign()}
-function giveRole(c,r){if(c.role===r){c.roleUntil=tNow+S.roleMin*60;return}
+function giveRole(c,r){if(c.role===r){c.roleUntil=tNow+S.roleMin*60;return}fxRole(c,r);
   if(c.role)dropRole(c,true);const old=holders[r];if(old&&old!==c){dropRole(old)}
   holders[r]=c;c.role=r;c.roleUntil=tNow+S.roleMin*60;
   if(ROLE[r].center){freeSlot(c);c.mk=ROLE[r].model;if(!M[c.mk]){const ks=Object.keys(M).filter(k=>MDEF[k].young&&MDEF[k].g===MDEF[ROLE[r].model].g);c.mk=ks[0]||c.mk}buildBody(c);c.mode='runC'}
@@ -442,7 +467,7 @@ function ensureCap(newC){const list=halayList().filter(c=>!c.role&&c!==newC).sor
 function onChat(id,nick,text){let c=chars.get(id);if(c&&c.mode==='leave'){removeChar(c);c=null}if(!c)c=touch(id,nick);c.last=tNow;const t=text.trim().toLocaleLowerCase('tr');
   if(t==='değiş'||t==='degis'){if(!(c.role&&ROLE[c.role].center)){c.g=c.g==='m'?'f':'m';const ks=guestKeys(c.g);if(ks.length){c.mk=c.guestMk=pick(ks);buildBody(c)}}return}
   if(text.trim())say(c,text.trim())}
-function onGift(id,nick,coins,giftName){coins=Math.max(1,coins|0);const isNew=!chars.has(id)||chars.get(id).mode==='leave';if(isNew&&chars.has(id))removeChar(chars.get(id));const c=touch(id,nick,true);const tot=(totals.get(id)||0)+coins;totals.set(id,tot);
+function onGift(id,nick,coins,giftName){coins=Math.max(1,coins|0);const isNew=!chars.has(id)||chars.get(id).mode==='leave';if(isNew&&chars.has(id))removeChar(chars.get(id));const c=touch(id,nick,true);fxMoney(c,coins);const tot=(totals.get(id)||0)+coins;totals.set(id,tot);
   tempo=Math.min(3,tempo+Math.min(.9,.12+coins*.02));c.salsaUntil=tNow+8;shake(.35);
   feed(coins===1?`💸 ${avImg(id)}<b>${esc(nick)}</b> para saçtı`:`💸 ${avImg(id)}<b>${esc(nick)}</b> ${coins} jeton para saçtı`);
   const gn=String(giftName||'').toLocaleLowerCase('tr'),has=w=>w&&String(w).split(',').some(x=>x.trim()&&gn.includes(x.trim().toLocaleLowerCase('tr')));
@@ -526,7 +551,7 @@ let pruneT=0;function loop(){requestAnimationFrame(loop);const dt=Math.min(clock
     if(c.bubble){c.bubbleT-=dt;if(c.bubbleT<1)c.bubble.material.opacity=Math.max(0,c.bubbleT);if(c.bubbleT<=0){disposeSprite(c.bubble);c.bubble=null}}
     if(c.glow.visible)c.glow.material.opacity=.6+.3*Math.sin(tNow*4)}
   sun.target.position.set(0,0,0);
-  updateCamera(dt);renderer.render(scene,camera)}
+  updateCamera(dt);renderer.render(scene,camera);fxUpdate(dt)}
 
 // ================= test =================
 const NAMES=['ayse_k','mehmet34','zeyno','emre.06','kübra','burak_tr','elif.nur','hasan_dayi','merve','oguz','selin_','can_bey','derya','yusuf','gizem','tuna','fatma_teyze','ali_veli','esra','kerem'];
