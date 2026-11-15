@@ -294,7 +294,7 @@ function clipFor(Mo,key){if(Mo.cache[key])return Mo.cache[key];const C=CL[key];i
     if(x.suffix==='Hips'&&x.prop==='position'&&Math.abs(ratio-1)>.02){const v=t.values=t.values.slice();for(let i=0;i<v.length;i++)v[i]*=ratio}return t});
   return Mo.cache[key]=new THREE.AnimationClip(key,C.dur,tracks)}
 function fbxLoad1(url){return new Promise((res,rej)=>{try{new THREE.FBXLoader().load(url,res,undefined,rej)}catch(e){rej(e)}})}
-async function fbxLoad(url){try{return await fbxLoad1(url)}catch(e){return await fbxLoad1(url.replace(/\.fbx$/,'.bin'))}}
+async function fbxLoad(url){try{return await fbxLoad1(url)}catch(e){try{return await fbxLoad1(url.replace(/^models\//,''))}catch(e2){return await fbxLoad1(url.replace(/\.fbx$/,'.bin'))}}}
 const ready=()=>Object.keys(M).some(k=>MDEF[k].guest)&&hasClip('run');
 const dancePool=()=>[...DANCES,...(hasClip('salsa')?['salsa']:[])];
 function mdlStatus(){const ks=Object.keys(M),cs=Object.keys(CL);const miss=[];if(!hasClip('rumba'))miss.push('rumba');['run','right','salsa'].forEach(k=>{if(!hasClip(k))miss.push(k)});
