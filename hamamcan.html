@@ -47,12 +47,12 @@ body:hover #hint{opacity:.55}
 <div id="hint">H: ayarlar · Boşluk: test konuşma</div>
 <script>
 'use strict';
-const VERSION='v3 şeffaf';document.querySelectorAll('.ver').forEach(e=>e.textContent=VERSION);
+const VERSION='v3.1';document.querySelectorAll('.ver').forEach(e=>e.textContent=VERSION);
 const PI=Math.PI,TAU=PI*2,clamp=(v,a=0,b=1)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,rnd=(a,b)=>a+Math.random()*(b-a);
 const ease=(cur,tgt,rate,dt)=>cur+(tgt-cur)*(1-Math.exp(-rate*dt));
 const sstep=(a,b,x)=>{const t=clamp((x-a)/(b-a));return t*t*(3-2*t)};
 // ---------- settings ----------
-const DEF={gain:1.6,gate:8,bg:'seffaf',zoom:.95,sleep:60,name:'',frame:false,thanks:false,motion:1,ws:'ws://127.0.0.1:21213/',mic:''};
+const DEF={gain:2,gate:6,bg:'seffaf',zoom:.95,sleep:60,name:'',frame:false,thanks:false,motion:1,ws:'ws://127.0.0.1:21213/',mic:''};
 let S={...DEF};try{Object.assign(S,JSON.parse(localStorage.getItem('hamamcan3')||'{}'))}catch(e){}
 const qp=new URLSearchParams(location.search);for(const k of Object.keys(DEF)){if(qp.has(k)){const v=qp.get(k);S[k]=typeof DEF[k]==='number'?+v:typeof DEF[k]==='boolean'?v!=='0'&&v!=='false':v}}
 if(S.bg!=='seffaf'&&S.bg!=='yesil')S.bg='seffaf';S.name='';S.frame=false;S.thanks=false;
@@ -140,14 +140,18 @@ async function startMic(devId){
     if(stream)stream.getTracks().forEach(t=>t.stop());
     stream=await navigator.mediaDevices.getUserMedia({audio:{deviceId:devId?{exact:devId}:undefined,echoCancellation:false,noiseSuppression:true,autoGainControl:false}});
     if(!ac)ac=new (window.AudioContext||window.webkitAudioContext)();
-    await ac.resume();
+    try{await ac.resume()}catch(e){}
     const src=ac.createMediaStreamSource(stream);an=ac.createAnalyser();an.fftSize=1024;an.smoothingTimeConstant=.2;src.connect(an);
     buf=new Float32Array(an.fftSize);
-    document.getElementById('start').style.display='none';listMics();
-  }catch(e){document.querySelector('#start small').innerHTML='Mikrofon açılamadı: '+e.name+'<br>Sayfa https üzerinden açılmalı ve mikrofon izni verilmeli. Boşluk tuşuyla test edebilirsin.'}
+    listMics();checkRunning();
+  }catch(e){if(devId){S.mic='';save();return startMic('')}document.querySelector('#start small').innerHTML='Mikrofon açılamadı: '+e.name+'<br>Sayfa https üzerinden açılmalı ve mikrofon izni verilmeli. Boşluk tuşuyla test edebilirsin.'}
 }
+function checkRunning(){const st=document.getElementById('start');if(ac&&ac.state==='running'){st.style.display='none'}else{st.style.display='flex';document.getElementById('go').textContent='🔊 Tıkla, sesi başlat';}}
+const unlock=()=>{if(ac&&ac.state!=='running')ac.resume().then(checkRunning).catch(()=>{})};addEventListener('pointerdown',unlock);addEventListener('keydown',unlock);
+setInterval(()=>{if(ac&&ac.state!=='running')checkRunning()},2000);
 async function listMics(){try{const ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='audioinput');const sel=document.getElementById('micSel');sel.innerHTML='';for(const d of ds){const o=document.createElement('option');o.value=d.deviceId;o.textContent=d.label||'Mikrofon';if(d.deviceId===S.mic)o.selected=true;sel.appendChild(o)}}catch(e){}}
-document.getElementById('go').onclick=()=>startMic(S.mic);
+document.getElementById('go').onclick=()=>{if(an&&ac){ac.resume().then(checkRunning)}else startMic(S.mic)};
+if(location.protocol==='file:')document.querySelector('#start small').innerHTML+='<br><b>Not:</b> Dosyayı çift tıklayarak açtın. Mikrofon için GitHub linkinden aç.';
 document.getElementById('start').onclick=e=>{if(e.target.id==='start')document.getElementById('start').style.display='none'};
 (async()=>{try{const p=await navigator.permissions.query({name:'microphone'});if(p.state==='granted')startMic(S.mic)}catch(e){}})();
 let fakeTalk=false;
