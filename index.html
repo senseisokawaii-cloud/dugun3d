@@ -139,7 +139,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:"Balo
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
 <script>
 (()=>{
-const VERSION='3D v10';document.querySelectorAll('.ver').forEach(e=>e.textContent=VERSION);
+const VERSION='3D v11';document.querySelectorAll('.ver').forEach(e=>e.textContent=VERSION);
 const $=id=>document.getElementById(id);
 const V3=THREE.Vector3,PI=Math.PI,TAU=PI*2;
 const rnd=(a,b)=>a+Math.random()*(b-a),pick=a=>a[(Math.random()*a.length)|0],clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -172,35 +172,14 @@ app.prepend(renderer.domElement);
 const scene=new THREE.Scene();scene.fog=new THREE.Fog(0xe9d6b8,70,230);
 const camera=new THREE.PerspectiveCamera(48,9/16,.1,400);
 fit();addEventListener('resize',fit);
-// ================= ses efektleri (kodla üretilir, dosya gerekmez) =================
-const SFX=(()=>{let ac=null,master=null,nb=null;
-  function A(){if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.gain.value=S.vol;
-      const comp=ac.createDynamicsCompressor();comp.threshold.value=-14;comp.ratio.value=4;master.connect(comp);comp.connect(ac.destination);
-      nb=ac.createBuffer(1,ac.sampleRate,ac.sampleRate);const d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}catch(e){ac=null;return null}}
-    if(ac.state==='suspended')ac.resume().catch(()=>{});return ac}
-  function clap(t,v){const s=ac.createBufferSource();s.buffer=nb;const bp=ac.createBiquadFilter();bp.type='bandpass';bp.frequency.value=rnd(900,2400);bp.Q.value=rnd(.7,1.5);
-    const g=ac.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.004);g.gain.exponentialRampToValueAtTime(.001,t+rnd(.06,.12));
-    s.connect(bp);bp.connect(g);g.connect(master);s.start(t,rnd(0,.8),.15)}
-  function applause(dur,dens,v){const t0=ac.currentTime+.02,n=Math.round(dur*dens);for(let i=0;i<n;i++){const u=Math.random();clap(t0+u*dur,v*(1-u*u*.75)*rnd(.5,1))}}
-  function ding(t,f,v){[1,2.76,5.4].forEach((m,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f*m;g.gain.setValueAtTime(v/(i+1),t);g.gain.exponentialRampToValueAtTime(.0005,t+1.1/(i+1));o.connect(g);g.connect(master);o.start(t);o.stop(t+1.2)})}
-  function davul(t,big,v){const o=ac.createOscillator(),g=ac.createGain();o.frequency.setValueAtTime(big?115:190,t);o.frequency.exponentialRampToValueAtTime(big?46:95,t+.18);
-    g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+(big?.5:.2));o.connect(g);g.connect(master);o.start(t);o.stop(t+.55);
-    const s=ac.createBufferSource();s.buffer=nb;const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=big?900:2600;const g2=ac.createGain();g2.gain.setValueAtTime(v*.55,t);g2.gain.exponentialRampToValueAtTime(.001,t+.07);s.connect(f);f.connect(g2);g2.connect(master);s.start(t,rnd(0,.5),.1)}
-  function zilgit(t,dur,v){for(let k=0;k<3;k++){const o=ac.createOscillator(),g=ac.createGain(),lfo=ac.createOscillator(),lg=ac.createGain(),am=ac.createGain();const f0=rnd(1050,1400),r=rnd(7.5,9.5);
-      o.type='triangle';o.frequency.value=f0;lfo.frequency.value=r;lg.gain.value=f0*.07;lfo.connect(lg);lg.connect(o.frequency);
-      const tr=ac.createOscillator();tr.frequency.value=r;const tg=ac.createGain();tg.gain.value=.5;tr.connect(tg);tg.connect(am.gain);am.gain.value=.5;
-      const st=t+k*.06;g.gain.setValueAtTime(0,st);g.gain.linearRampToValueAtTime(v*.3,st+.08);g.gain.setValueAtTime(v*.3,st+dur-.3);g.gain.linearRampToValueAtTime(0,st+dur);
-      o.connect(am);am.connect(g);g.connect(master);[o,lfo,tr].forEach(x=>{x.start(st);x.stop(st+dur+.1)})}}
-  function zurna(t,v){[587,659,698,784,698,659,587,659].forEach((f,i)=>{const tt=t+i*.17,o=ac.createOscillator(),g=ac.createGain(),bp=ac.createBiquadFilter(),vb=ac.createOscillator(),vg=ac.createGain();
-      o.type='sawtooth';o.frequency.value=f;vb.frequency.value=6;vg.gain.value=f*.012;vb.connect(vg);vg.connect(o.frequency);bp.type='bandpass';bp.frequency.value=f*2.2;bp.Q.value=1.6;
-      g.gain.setValueAtTime(0,tt);g.gain.linearRampToValueAtTime(v*.3,tt+.02);g.gain.setValueAtTime(v*.3,tt+.14);g.gain.linearRampToValueAtTime(0,tt+.18);
-      o.connect(bp);bp.connect(g);g.connect(master);o.start(tt);o.stop(tt+.2);vb.start(tt);vb.stop(tt+.2)})}
-  return{
-    unlock(){A()},
-    vol(v){if(master)master.gain.value=v},
-    altin(coins){if(!A())return;const t=ac.currentTime+.01,big=Math.min(1,Math.log10(Math.max(1,coins))/2);ding(t,1760,.55);ding(t+.09,2350,.4);applause(1.5+big*1.8,42+big*40,.95)},
-    gelin(){if(!A())return;const t=ac.currentTime+.02,P=[1,0,0,1,0,1,0,0];for(let i=0;i<16;i++)davul(t+i*.16,P[i%8]===1,.95);zurna(t+.15,.95);zilgit(t+.4,2.3,.85);applause(3.2,55,1)},
-    rol(){if(!A())return;const t=ac.currentTime+.02;for(let i=0;i<6;i++)davul(t+i*.14,i%3===0,.85);applause(1.9,45,.9)}}})();
+// ================= ses efektleri (ses dosyaları: sesler/ klasörü veya index.html'in yanı) =================
+// alkis.mp3 → çeyrek altın · gelin.mp3 → gelin/damat gelince · rol.mp3 → sağdıç/nedime/halay başı (yoksa alkis çalar)
+const SFX=(()=>{const SND={};
+  function load(n){const urls=[];for(const d of['sesler/',''])for(const e of['mp3','wav','ogg','m4a'])urls.push(d+n+'.'+e);
+    (function next(i){if(i>=urls.length)return;const a=new Audio();a.preload='auto';a.oncanplaythrough=()=>{if(!SND[n]){SND[n]=a}};a.onerror=()=>next(i+1);a.src=urls[i]})(0)}
+  ['alkis'].forEach(load);
+  function play(n){const a=SND[n]||(n!=='alkis'&&SND.alkis);if(!a)return;try{const c=a.cloneNode();c.volume=Math.max(0,Math.min(1,S.vol));c.play().catch(()=>{})}catch(e){}}
+  return{unlock(){try{const a=new Audio();a.play().catch(()=>{})}catch(e){}},vol(){},altin(){play('alkis')},gelin(){play('alkis')},rol(){play('alkis')}}})();
 addEventListener('pointerdown',()=>SFX.unlock());addEventListener('keydown',()=>SFX.unlock());SFX.unlock();
 
 // ================= efektler (para, kalp, smokin...) =================
@@ -444,7 +423,7 @@ function buildBody(c){if(c.inner){c.root.remove(c.inner);c.mixer&&c.mixer.stopAl
   holder.scale.setScalar(Mo.scale);holder.position.y=-Mo.minY*Mo.scale;c.inner=holder;c.root.add(holder);c.mixer=new THREE.AnimationMixer(obj);c.actions={};c.cur=null;c.curKey=null;c.Mo=Mo;
   c.label.position.y=Mo.height+.36;c.hw=0;c.B=rigOf(c,obj,holder)}
 // ================= kodla çizilen halay (3 ayak) =================
-const HB=['Hips','Spine','Spine1','Spine2','LeftShoulder','RightShoulder','LeftArm','RightArm','LeftForeArm','RightForeArm','LeftUpLeg','RightUpLeg','LeftLeg','RightLeg','LeftFoot','RightFoot'];
+const HB=['Hips','Spine','Spine1','Spine2','Neck','Head','LeftShoulder','RightShoulder','LeftArm','RightArm','LeftForeArm','RightForeArm','LeftUpLeg','RightUpLeg','LeftLeg','RightLeg','LeftFoot','RightFoot'];
 const _q1=new THREE.Quaternion(),_q2=new THREE.Quaternion(),_q3=new THREE.Quaternion(),_v1=new V3();
 function rigOf(c,obj,holder){const saveP=c.root.position.clone(),saveR=c.root.rotation.y;c.root.position.set(0,0,0);c.root.rotation.y=0;c.root.updateMatrixWorld(true);
   const hq=holder.getWorldQuaternion(new THREE.Quaternion()).invert();const all=[],by={};
@@ -484,21 +463,27 @@ function shimmy(c,a){const B=c.B;if(!B)return;c.inner.updateMatrixWorld(true);
   // eller: kollar hafif içe-aşağı, el ele tutuşma hissi
   rotChar(c,B.by.LeftArm,AY,-10);rotChar(c,B.by.RightArm,AY,10)}
 function applyHalay(c,w){const B=c.B;if(!B||w<=0||!HR)return;const T={};
-  for(const k of HB){const b=B.by[k];T[k]=HR.R[k].clone().multiply(b.rc)}
+  for(const k of HB){const b=B.by[k];if(!b||!HR.R[k])continue;T[k]=HR.R[k].clone().multiply(b.rc)}
   for(const b of B.all){if(!b.ctrl){b.o.quaternion.slerp(b.rl,w);continue}
     const par=b.sf==='Hips'?B.by.Hips.pc:T[B.by[b.sf]&&b.o.parent?boneSuffix(b.o.parent.name):''];
     if(!par){b.o.quaternion.slerp(b.rl,w);continue}
     _q1.copy(par).invert().multiply(T[b.sf]);b.o.quaternion.slerp(_q1,w)}
   const h=B.by.Hips;_v1.copy(h.rp);_v1.y-=HR.down*B.hipF;h.o.position.lerp(_v1,w)}
-function simplePose(p){const sn=Math.sin(TAU*p),s2=Math.sin(TAU*p*2),R={};const lL=Math.max(0,sn),rL=Math.max(0,-sn);
-  R.Hips=QZ(3*sn);R.Spine=QZ(-1.5*sn);R.Spine1=QZ(-1.5*sn);R.Spine2=QX(-2);
-  const sh=4*Math.max(0,s2);R.LeftShoulder=QZ(sh);R.RightShoulder=QZ(-sh);
-  const sw=10*sn;R.LeftArm=QZ(-48).multiply(QY(-12+sw));R.RightArm=QZ(48).multiply(QY(12-sw));
-  R.LeftForeArm=R.LeftArm.clone().multiply(QY(-28));R.RightForeArm=R.RightArm.clone().multiply(QY(28));
-  R.LeftUpLeg=QX(-20*lL);R.RightUpLeg=QX(-20*rL);
-  R.LeftLeg=R.LeftUpLeg.clone().multiply(QX(38*lL));R.RightLeg=R.RightUpLeg.clone().multiply(QX(38*rL));
-  R.LeftFoot=R.LeftLeg.clone().multiply(QX(-18*lL));R.RightFoot=R.RightLeg.clone().multiply(QX(-18*rL));
-  return{R,down:.012+.014*Math.abs(s2)}}
+function simplePose(p,amp,cr,air){amp=amp||1;cr=cr||0;air=air||0;const k=1-air,sn=Math.sin(TAU*p),s2=Math.sin(TAU*p*2),R={};
+  const lL=Math.max(0,sn)*k,rL=Math.max(0,-sn)*k;
+  R.Hips=QZ(3*sn*amp*k).multiply(QY(5*sn*amp*k));
+  R.Spine=QZ(-1.5*sn*amp).multiply(QX(3*cr));R.Spine1=QZ(-2*sn*amp).multiply(QX(4*cr));R.Spine2=QZ(-2*sn*amp).multiply(QX(-2+6*cr+2*s2*amp));
+  R.Neck=R.Spine2.clone().multiply(QX(5*s2*amp));R.Head=R.Neck.clone().multiply(QZ(8*sn*amp)).multiply(QX(4*Math.sin(TAU*p*2+1)*amp-6*air));
+  const sh=6*Math.max(0,s2)*amp+10*air;R.LeftShoulder=QZ(sh);R.RightShoulder=QZ(-sh);
+  const up=-48+38*air,sw=11*sn*amp*k;R.LeftArm=QZ(up).multiply(QY(-12+sw));R.RightArm=QZ(-up).multiply(QY(12-sw));
+  R.LeftForeArm=R.LeftArm.clone().multiply(QY(-28+10*air));R.RightForeArm=R.RightArm.clone().multiply(QY(28-10*air));
+  R.LeftUpLeg=QX(-20*lL-20*cr-14*air);R.RightUpLeg=QX(-20*rL-20*cr-14*air);
+  R.LeftLeg=R.LeftUpLeg.clone().multiply(QX(38*lL+38*cr+34*air));R.RightLeg=R.RightUpLeg.clone().multiply(QX(38*rL+38*cr+34*air));
+  R.LeftFoot=R.LeftLeg.clone().multiply(QX(-18*lL-18*cr-12*air));R.RightFoot=R.RightLeg.clone().multiply(QX(-18*rL-18*cr-12*air));
+  return{R,down:(.012+.016*Math.abs(s2)*amp)*k+.1*cr}}
+let jumpStart=-99,nextJump=10;
+function jumpOf(c){const u=(tNow-jumpStart-(c.ph||0)*2.5)/.95;if(u<0||u>1)return[0,0];
+  const cr=u<.25?Math.sin(u/.25*PI):u>.75?Math.sin((u-.75)/.25*PI)*.8:0,air=u>=.25&&u<=.75?Math.sin((u-.25)/.5*PI):0;return[cr,air]}
 function rebuild(c){if(!M[c.mk]){const ks=guestKeys(c.g);if(!ks.length)return;c.mk=pick(ks)}buildBody(c)}
 function playClip(c,key,ts){if(!c.mixer)return;if(!hasClip(key)){key=key==='rumba'?'salsa':key==='left'?'right':key==='right'?'left':key==='salsa'?'idle':key;if(!hasClip(key))key=hasClip('idle')?'idle':'run'}
   if(c.curKey!==key){const clip=clipFor(c.Mo,key);if(!clip)return;let a=c.actions[key];if(!a){a=c.mixer.clipAction(clip);c.actions[key]=a}
@@ -603,7 +588,7 @@ function loop(){requestAnimationFrame(loop);const dt=Math.min(clock.getDelta(),.
   const list=halayList().sort((a,b)=>(b.role==='basi')-(a.role==='basi')||a.joinT-b.joinT);
   for(let i=0;i<HT.length;i++)HT[i]+=HV/(HR0+i*HGAP)*dt*(tempo>1.2?1.25:1);
   let maxR=3.2,ri=0,k=0;
-  HR=simplePose(tNow*1.05);for(const c of list)c.simple=false;
+  if(tNow>nextJump){jumpStart=tNow;nextJump=tNow+rnd(7,12)}for(const c of list)c.simple=false;
   for(const c of list){let r=HR0+ri*HGAP;if(k>=Math.floor(TAU*r/HSP)){ri++;k=0;r=HR0+ri*HGAP}if(ri>=HT.length)HT.push(rnd(0,TAU));
     const a=HT[ri]-k*HSP/r;k++;const sx=Math.sin(a)*r,sz=Math.cos(a)*r;if(r>maxR)maxR=r;
     if(c.mode==='runC')c.mode='run';
@@ -628,7 +613,8 @@ function loop(){requestAnimationFrame(loop);const dt=Math.min(clock.getDelta(),.
     if(c.mode==='leave'){const d=moveTo(c,c.exit.x,c.exit.z,4.2,dt);playClip(c,'run',1);if(d<.5){removeChar(c);continue}}
     if(c.role&&tNow>c.roleUntil)dropRole(c);
     if(c.mixer)c.mixer.update(dt);
-    if(c.simple&&c.mode==='halay'&&c.B)applyHalay(c,1);
+    if(c.simple&&c.mode==='halay'&&c.B){if(c.ph==null){c.ph=rnd(-.07,.07);c.amp=rnd(.8,1.25)}const [cr,air]=jumpOf(c);HR=simplePose(tNow*1.05+c.ph,c.amp,cr,air);applyHalay(c,1);c.root.position.y=air*.32}
+    else if(c.root.position.y)c.root.position.y=0;
     if(c.shim&&c.mode==='halay')shimmy(c,SH);
     if(c.mode!=='halay'||(c.role&&ROLE[c.role].center))c.halay=false;
     
@@ -690,7 +676,7 @@ function bind(id,key,fn){const el=$(id),cb=el.type==='checkbox';if(cb)el.checked
 ['thSagdic','thBasi','roleMin','maxChars','idleMin'].forEach(k=>bind(k,k));
 ['gGelin','gDamat'].forEach(k=>{const el=$(k);el.value=S[k];el.addEventListener('input',()=>{S[k]=el.value;saveS()})});
 ['showNames','showBubbles','showFeed'].forEach(k=>bind(k,k,()=>{if(k==='showNames')chars.forEach(c=>{if(c.label)c.label.visible=!!S.showNames});if(k==='showBubbles'&&!S.showBubbles)chars.forEach(c=>{if(c.bubble)c.bubble.visible=false});if(k==='showFeed'&&!S.showFeed)$('feed').innerHTML=''}));
-{const v=$('vol');v.value=S.vol;v.addEventListener('input',()=>{S.vol=+v.value;saveS();SFX.vol(S.vol);SFX.rol()})}
+{const v=$('vol');v.value=S.vol;v.addEventListener('change',()=>{S.vol=+v.value;saveS();SFX.altin()})}
 bind('shadows','shadows',()=>{renderer.shadowMap.enabled=!!S.shadows;scene.traverse(o=>{if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.needsUpdate=true)}})});
 setTimeout(()=>$('hint').style.opacity=0,7000);
 
